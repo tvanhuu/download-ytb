@@ -8,8 +8,22 @@
 # ─────────────────────────────────────────────
 
 # URL playlist YouTube muốn tải (dùng khi không truyền argument từ CLI)
+# PLYaaU301HUe03PabLEGbMGB8nhHgq58Zr Thế Giới Hoàn Mỹ 
+# PLVWkw4N2bf77S-EwSLexakrYJ-wvcmMHi Tiên nghịch 
 # PLAYLIST_URL = "https://www.youtube.com/playlist?list=PLYaaU301HUe06Zlf3qv9q2dnVulj35gOb" # PHÀM NHÂN TU TIÊN 2
-PLAYLIST_URL = "https://www.youtube.com/playlist?list=PL6j_JhY0whHHRyxqzy-DW1w3E7V4r92rC"
+PLAYLIST_URL = "https://www.youtube.com/playlist?list=PLJKFdztrzjpXB7PSeIfb-8KSK6ZzqY1pI"
+
+# Danh sách video muốn BỎ QUA — không tải
+# Hỗ trợ 2 cách:
+#   - Số thứ tự trong playlist (int):  1, 5, 10
+#   - YouTube video ID (str):          "dQw4w9WgXcQ", "abc123xyz"
+#
+# Ví dụ:
+#   SKIP_VIDEOS = [3, 7, 15]                          # bỏ qua video #3, #7, #15
+#   SKIP_VIDEOS = ["dQw4w9WgXcQ", "abc123xyz"]        # bỏ qua theo video ID
+#   SKIP_VIDEOS = [3, "dQw4w9WgXcQ", 15]              # kết hợp cả hai
+#   SKIP_VIDEOS = []                                   # không bỏ qua video nào
+SKIP_VIDEOS: list[int | str] = ["Z6qH-rhdSIw", "-xIZjbuZAN8", "kWE1O65dMY0", "24fyV_wicYo", "ARIyZkA5FF0", "AefATzHCR7k", "gSKZDU12S6s", "dj9IgI8W1ZY"]
 
 
 # ─────────────────────────────────────────────

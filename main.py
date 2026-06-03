@@ -144,10 +144,16 @@ def display_playlist(info: dict) -> list[dict]:
     entries  = info.get("entries", [])
     total    = len(entries)
 
+    # Tách SKIP_VIDEOS thành 2 set: skip theo index (int) và theo ID (str)
+    skip_indices = {v for v in config.SKIP_VIDEOS if isinstance(v, int)}
+    skip_ids     = {v for v in config.SKIP_VIDEOS if isinstance(v, str)}
+
     print("=" * 70)
     print(f"  📋  {pl_title}")
     print(f"  👤  {channel}")
     print(f"  📦  Tổng số video: {total}")
+    if skip_indices or skip_ids:
+        print(f"  🚫  Bỏ qua (config): {len(skip_indices) + len(skip_ids)} video")
     print("=" * 70)
 
     if total == 0:
@@ -158,6 +164,8 @@ def display_playlist(info: dict) -> list[dict]:
     print("  " + "-" * 66)
 
     videos = []
+    user_skipped = 0
+
     for i, entry in enumerate(entries, start=1):
         if entry is None:
             print(f"  {i:>4}  {'[Video không khả dụng]':<48}  {'--:--':>10}")
@@ -168,18 +176,28 @@ def display_playlist(info: dict) -> list[dict]:
         duration  = format_duration(entry.get("duration"))
         url_video = entry.get("url") or f"https://youtube.com/watch?v={video_id}"
 
-        display_title = vid_title if len(vid_title) <= 48 else vid_title[:45] + "..."
-        print(f"  {i:>4}  {display_title:<48}  {duration:>10}")
+        # Kiểm tra video có nằm trong danh sách skip không
+        is_skipped = (i in skip_indices) or (video_id in skip_ids)
 
-        videos.append({
-            "index": i,
-            "id":    video_id,
-            "title": sanitize_title(vid_title),   # [FIX 2] sanitize ngay khi đọc
-            "url":   url_video,
-        })
+        display_title = vid_title if len(vid_title) <= 48 else vid_title[:45] + "..."
+
+        if is_skipped:
+            user_skipped += 1
+            print(f"  {i:>4}  {display_title:<48}  {duration:>10}  ⛔")
+        else:
+            print(f"  {i:>4}  {display_title:<48}  {duration:>10}")
+            videos.append({
+                "index": i,
+                "id":    video_id,
+                "title": sanitize_title(vid_title),   # [FIX 2] sanitize ngay khi đọc
+                "url":   url_video,
+            })
 
     print("  " + "-" * 66)
-    print(f"\n  ✅ Tìm thấy {len(videos)} video khả dụng / {total} tổng.\n")
+    msg = f"\n  ✅ Tìm thấy {len(videos)} video sẽ tải / {total} tổng."
+    if user_skipped:
+        msg += f"  (🚫 bỏ qua {user_skipped} video theo config)"
+    print(msg + "\n")
 
     return videos
 

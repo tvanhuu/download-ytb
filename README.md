@@ -10,6 +10,7 @@ Script Python tự động tải toàn bộ video hoặc audio từ một playli
 - 📹 **Tải video** — MP4, chọn chất lượng (360p → 1080p)
 - 🎵 **Tải audio** — MP3, chọn bitrate (128 → 320 kbps)
 - ⏭️ **Resume** — bỏ qua video đã tải nhờ `archive.txt`
+- 🚫 **Skip videos** — bỏ qua video cụ thể theo số thứ tự hoặc video ID
 - 📊 **Progress bar** — thanh tiến trình riêng cho từng video (tqdm)
 - 📝 **Log lỗi** — ghi lỗi ra file để review sau
 - 🔧 **Preflight check** — kiểm tra `ffmpeg` trước khi chạy
@@ -86,6 +87,9 @@ AUDIO_QUALITY = "192"
 # Giới hạn tốc độ tải (None = không giới hạn)
 RATE_LIMIT = None
 
+# Bỏ qua video cụ thể — theo số thứ tự (int) hoặc video ID (str)
+SKIP_VIDEOS = [3, 7, "dQw4w9WgXcQ"]
+
 # File lưu danh sách đã tải (resume)
 ARCHIVE_FILE = "./downloads/archive.txt"
 
@@ -130,10 +134,12 @@ python main.py [URL]
   ┌──────────────────────────────────────────────────────────────────────┐
   │  📋  Python Tutorial for Beginners                                   │
   │  👤  Tech Channel          📦  47 video                             │
+  │  🚫  Bỏ qua (config): 2 video                                       │
   │  ────────────────────────────────────────────────────────────────    │
   │     #  Tiêu đề                                          Thời lượng  │
   │     1  Python Installation Guide                          0:10:23   │
   │     2  Variables and Data Types                           0:15:47   │
+  │     3  Old Intro Video (deprecated)                       0:02:11  ⛔│
   │   ...                                                               │
   └──────────────────────────────────────────────────────────────────────┘
       │
@@ -159,6 +165,37 @@ python main.py [URL]
   ❌ Lỗi     : 0
   📁 Lưu tại : ./downloads/videos
 ```
+
+---
+
+## 🚫 Skip Videos — bỏ qua video cụ thể
+
+Khi playlist có một vài video bạn không muốn tải (intro, outro, video trùng...), thêm chúng vào `SKIP_VIDEOS` trong `config.py`:
+
+```python
+# Bỏ qua theo số thứ tự trong playlist
+SKIP_VIDEOS = [1, 5, 10]
+
+# Bỏ qua theo YouTube video ID
+SKIP_VIDEOS = ["dQw4w9WgXcQ", "abc123xyz"]
+
+# Kết hợp cả hai
+SKIP_VIDEOS = [1, "dQw4w9WgXcQ", 10]
+
+# Không bỏ qua video nào (mặc định)
+SKIP_VIDEOS = []
+```
+
+Video bị skip sẽ hiển thị với ⛔ trong bảng danh sách và **không được tải**:
+
+```
+     #  Tiêu đề                                          Thời lượng
+     1  Python Installation Guide                          0:10:23
+     2  Old Intro Video                                    0:02:11  ⛔
+     3  Variables and Data Types                           0:15:47
+```
+
+> 💡 **Tip**: Chạy script 1 lần trước để xem bảng danh sách, ghi lại số thứ tự của video muốn bỏ qua, rồi thêm vào `SKIP_VIDEOS`.
 
 ---
 
