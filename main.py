@@ -288,8 +288,23 @@ def build_base_opts(out_path: str, format_type: str) -> dict:
             }],
         })
     else:
+        # ── Subtitle mode ──
+        sub_mode = config.SUBTITLE_MODE.lower()
+        sub_langs = config.SUBTITLE_LANGS
+
+        if sub_mode == "only":
+            # Chỉ tải phụ đề — không tải video
+            base.update({
+                "skip_download":      True,
+                "writesubtitles":     True,
+                "writeautomaticsub":  True,
+                "subtitleslangs":     sub_langs.split(","),
+                "subtitlesformat":    "srt/ass/vtt/best",
+            })
+            return base
+
+        # ── Video format ──
         if config.RESOLUTION.lower() == "max":
-            # Tải chất lượng cao nhất có sẵn — không giới hạn resolution
             base.update({
                 "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
                 "merge_output_format": config.VIDEO_FORMAT,
@@ -302,6 +317,33 @@ def build_base_opts(out_path: str, format_type: str) -> dict:
                     f"/best[height<={res}][ext=mp4]"
                 ),
                 "merge_output_format": config.VIDEO_FORMAT,
+            })
+
+        # ── Embed subtitle vào video ──
+        if sub_mode == "embed":
+            base.update({
+                "writesubtitles":     True,
+                "writeautomaticsub":  True,
+                "subtitleslangs":     sub_langs.split(","),
+                "subtitlesformat":    "srt/ass/vtt/best",
+                "postprocessors":     base.get("postprocessors", []) + [
+                    {
+                        "key": "FFmpegSubtitlesConvertor",
+                        "format": "srt",
+                    },
+                    {
+                        "key": "FFmpegEmbedSubtitle",
+                    },
+                ],
+            })
+
+        # ── Tải video + phụ đề riêng (2 file tách biệt) ──
+        elif sub_mode == "separate":
+            base.update({
+                "writesubtitles":     True,
+                "writeautomaticsub":  True,
+                "subtitleslangs":     sub_langs.split(","),
+                "subtitlesformat":    "srt/ass/vtt/best",
             })
 
     return base
@@ -337,8 +379,18 @@ def download_playlist(videos: list[dict], format_type: str = "video"):
         "MAX (cao nhất)" if config.RESOLUTION.lower() == "max" else config.RESOLUTION
     )
 
+    # Subtitle mode label
+    sub_mode = config.SUBTITLE_MODE.lower() if format_type == "video" else None
+    sub_labels = {"none": None, "embed": "📝 nhúng vào video", "separate": "📝 file riêng", "only": "📝 chỉ phụ đề"}
+    sub_label = sub_labels.get(sub_mode)
+
     print(f"{'─' * 70}")
-    print(f"  🚀 Bắt đầu tải {total} file ({ext_name} · {quality})")
+    if sub_mode == "only":
+        print(f"  🚀 Bắt đầu tải phụ đề cho {total} video ({config.SUBTITLE_LANGS})")
+    else:
+        print(f"  🚀 Bắt đầu tải {total} file ({ext_name} · {quality})")
+    if sub_label:
+        print(f"  📝 Phụ đề    : {sub_label}  (ngôn ngữ: {config.SUBTITLE_LANGS})")
     print(f"  📁 Thư mục    : {out_path}")
     if config.ARCHIVE_FILE:
         print(f"  📒 Archive    : {config.ARCHIVE_FILE}  (bỏ qua nếu đã tải)")

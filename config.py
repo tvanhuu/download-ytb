@@ -45,13 +45,24 @@ AUDIO_SUBDIR = "audio"    # → ./downloads/audio/
 # Độ phân giải tối đa khi tải video
 # Các lựa chọn: "360p" | "480p" | "720p" | "1080p" | "1440p" | "2160p" | "max"
 # "max" = tải chất lượng cao nhất có sẵn (không giới hạn)
-RESOLUTION = "720p"
+RESOLUTION = "max"
 
 # Định dạng container đầu ra
 # Các lựa chọn: "mp4" | "mkv" | "webm"
 VIDEO_FORMAT = "mp4"
 
+# Chế độ phụ đề (subtitle)
+# Các lựa chọn:
+#   "none"     — chỉ tải video, không tải phụ đề
+#   "embed"    — tải video + nhúng phụ đề vào file video
+#   "separate" — tải video + phụ đề riêng (2 file tách biệt)
+#   "only"     — chỉ tải phụ đề (không tải video)
+SUBTITLE_MODE = "none"
 
+# Ngôn ngữ phụ đề ưu tiên (ISO 639-1 code)
+# Ví dụ: "vi" (Việt), "en" (Anh), "zh-Hans" (Trung giản thể), "ja" (Nhật)
+# Dùng "all" để tải tất cả ngôn ngữ có sẵn
+SUBTITLE_LANGS = "vi"
 # ─────────────────────────────────────────────
 #  CHẤT LƯỢNG AUDIO
 # ─────────────────────────────────────────────

@@ -7,8 +7,9 @@ Script Python tự động tải toàn bộ video hoặc audio từ một playli
 ## ✨ Tính năng
 
 - 📋 **Liệt kê playlist** — hiển thị toàn bộ danh sách video trước khi tải
-- 📹 **Tải video** — MP4, chọn chất lượng (360p → 1080p)
+- 📹 **Tải video** — MP4, chọn chất lượng (360p → 1080p → max)
 - 🎵 **Tải audio** — MP3, chọn bitrate (128 → 320 kbps)
+- 💬 **Phụ đề** — nhúng vào video, hoặc tải riêng file phụ đề
 - ⏭️ **Resume** — bỏ qua video đã tải nhờ `archive.txt`
 - 🚫 **Skip videos** — bỏ qua video cụ thể theo số thứ tự hoặc video ID
 - 📊 **Progress bar** — thanh tiến trình riêng cho từng video (tqdm)
@@ -81,6 +82,10 @@ OUTPUT_DIR   = "./downloads"
 # Chất lượng video: "360p" | "480p" | "720p" | "1080p" | "max"
 # "max" = tải chất lượng cao nhất có sẵn
 RESOLUTION   = "720p"
+
+# Phụ đề: "none" | "embed" | "only"
+SUBTITLE_MODE = "embed"
+SUBTITLE_LANGS = "vi,en"    # ngôn ngữ ưu tiên
 
 # Bitrate audio: "128" | "192" | "256" | "320"
 AUDIO_QUALITY = "192"
@@ -197,6 +202,39 @@ Video bị skip sẽ hiển thị với ⛔ trong bảng danh sách và **không
 ```
 
 > 💡 **Tip**: Chạy script 1 lần trước để xem bảng danh sách, ghi lại số thứ tự của video muốn bỏ qua, rồi thêm vào `SKIP_VIDEOS`.
+
+---
+
+## 💬 Phụ đề (Subtitle)
+
+Cấu hình `SUBTITLE_MODE` trong `config.py` để chọn cách xử lý phụ đề:
+
+| Mode | Mô tả |
+|------|--------|
+| `"none"` | Chỉ tải video, không tải phụ đề **(mặc định)** |
+| `"embed"` | Tải video + nhúng phụ đề vào file MP4 |
+| `"separate"` | Tải video + phụ đề riêng (2 file tách biệt: `.mp4` + `.srt`) |
+| `"only"` | Chỉ tải file phụ đề (SRT), không tải video |
+
+```python
+# Tải video + nhúng phụ đề tiếng Việt và Anh
+SUBTITLE_MODE  = "embed"
+SUBTITLE_LANGS = "vi,en"
+
+# Tải video + phụ đề file riêng (không nhúng)
+SUBTITLE_MODE  = "separate"
+SUBTITLE_LANGS = "vi,en"
+
+# Chỉ tải phụ đề (không tải video)
+SUBTITLE_MODE  = "only"
+SUBTITLE_LANGS = "vi,en,zh-Hans"
+
+# Tải tất cả ngôn ngữ phụ đề có sẵn
+SUBTITLE_LANGS = "all"
+```
+
+> ⚠️ **Lưu ý**: Chế độ phụ đề chỉ áp dụng khi chọn tải **Video (MP4)**, không áp dụng khi tải Audio.
+> Cần `ffmpeg` để nhúng phụ đề vào video (mode `"embed"`).
 
 ---
 
