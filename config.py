@@ -23,7 +23,7 @@ PLAYLIST_URL = "https://www.youtube.com/playlist?list=PLJKFdztrzjpXB7PSeIfb-8KSK
 #   SKIP_VIDEOS = ["dQw4w9WgXcQ", "abc123xyz"]        # bỏ qua theo video ID
 #   SKIP_VIDEOS = [3, "dQw4w9WgXcQ", 15]              # kết hợp cả hai
 #   SKIP_VIDEOS = []                                   # không bỏ qua video nào
-SKIP_VIDEOS: list[int | str] = ["Z6qH-rhdSIw", "-xIZjbuZAN8", "kWE1O65dMY0", "24fyV_wicYo", "ARIyZkA5FF0", "AefATzHCR7k", "gSKZDU12S6s", "dj9IgI8W1ZY"]
+SKIP_VIDEOS: list[int | str] = ["Z6qH-rhdSIw", "-xIZjbuZAN8", "kWE1O65dMY0", "24fyV_wicYo", "ARIyZkA5FF0", "AefATzHCR7k", "gSKZDU12S6s", "dj9IgI8W1ZY","opmjdWcClCQ","gD6OCieWczY","tk4s_edISxI","Maz3GxIqCyU","DFtCsqbx6sY","O_VFLhStEGM","zOtvm9g9zx8","48ghpKlRXC4","5WP-n0E06jw","nw_7wsxlhEQ","3X8CshJrAQ4","dKWj74rpnBE","2c-fatddwFw","s3lHq7QKlbY","CLmwYTtrprQ","_2Kdg8dir0Q"]
 
 
 # ─────────────────────────────────────────────
@@ -43,7 +43,8 @@ AUDIO_SUBDIR = "audio"    # → ./downloads/audio/
 # ─────────────────────────────────────────────
 
 # Độ phân giải tối đa khi tải video
-# Các lựa chọn: "360p" | "480p" | "720p" | "1080p" | "1440p" | "2160p"
+# Các lựa chọn: "360p" | "480p" | "720p" | "1080p" | "1440p" | "2160p" | "max"
+# "max" = tải chất lượng cao nhất có sẵn (không giới hạn)
 RESOLUTION = "720p"
 
 # Định dạng container đầu ra

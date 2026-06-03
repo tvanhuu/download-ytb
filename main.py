@@ -288,14 +288,21 @@ def build_base_opts(out_path: str, format_type: str) -> dict:
             }],
         })
     else:
-        res = config.RESOLUTION.replace("p", "")   # "720p" → "720"
-        base.update({
-            "format": (
-                f"bestvideo[height<={res}][ext=mp4]+bestaudio[ext=m4a]"
-                f"/best[height<={res}][ext=mp4]"
-            ),
-            "merge_output_format": config.VIDEO_FORMAT,
-        })
+        if config.RESOLUTION.lower() == "max":
+            # Tải chất lượng cao nhất có sẵn — không giới hạn resolution
+            base.update({
+                "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+                "merge_output_format": config.VIDEO_FORMAT,
+            })
+        else:
+            res = config.RESOLUTION.replace("p", "")   # "720p" → "720"
+            base.update({
+                "format": (
+                    f"bestvideo[height<={res}][ext=mp4]+bestaudio[ext=m4a]"
+                    f"/best[height<={res}][ext=mp4]"
+                ),
+                "merge_output_format": config.VIDEO_FORMAT,
+            })
 
     return base
 
@@ -326,7 +333,9 @@ def download_playlist(videos: list[dict], format_type: str = "video"):
 
     total    = len(videos)
     ext_name = config.AUDIO_FORMAT.upper() if format_type == "audio" else config.VIDEO_FORMAT.upper()
-    quality  = f"{config.AUDIO_QUALITY}kbps" if format_type == "audio" else config.RESOLUTION
+    quality  = f"{config.AUDIO_QUALITY}kbps" if format_type == "audio" else (
+        "MAX (cao nhất)" if config.RESOLUTION.lower() == "max" else config.RESOLUTION
+    )
 
     print(f"{'─' * 70}")
     print(f"  🚀 Bắt đầu tải {total} file ({ext_name} · {quality})")

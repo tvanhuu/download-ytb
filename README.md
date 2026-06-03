@@ -78,7 +78,8 @@ PLAYLIST_URL = "https://www.youtube.com/playlist?list=..."
 # Thư mục lưu file
 OUTPUT_DIR   = "./downloads"
 
-# Chất lượng video: "360p" | "480p" | "720p" | "1080p"
+# Chất lượng video: "360p" | "480p" | "720p" | "1080p" | "max"
+# "max" = tải chất lượng cao nhất có sẵn
 RESOLUTION   = "720p"
 
 # Bitrate audio: "128" | "192" | "256" | "320"
