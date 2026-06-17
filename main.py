@@ -1,5 +1,73 @@
-import yt_dlp
+import os
+import platform
+
+# Tự động sửa/thêm PATH trên Windows nếu chưa nhận diện được ffmpeg
+if platform.system() == "Windows":
+    paths = []
+    
+    # 1. Đọc từ Registry (User)
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as key:
+            user_path = winreg.QueryValueEx(key, "Path")[0]
+            for p in user_path.split(";"):
+                p = os.path.expandvars(p.strip())
+                if p:
+                    paths.append(p)
+    except Exception:
+        pass
+
+    # 2. Đọc từ Registry (Machine)
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"System\CurrentControlSet\Control\Session Manager\Environment") as key:
+            machine_path = winreg.QueryValueEx(key, "Path")[0]
+            for p in machine_path.split(";"):
+                p = os.path.expandvars(p.strip())
+                if p:
+                    paths.append(p)
+    except Exception:
+        pass
+
+    # 3. Thêm PATH hiện tại
+    for p in os.environ.get("PATH", "").split(os.path.pathsep):
+        p = p.strip()
+        if p:
+            paths.append(p)
+
+    # 4. Thêm các đường dẫn mặc định phổ biến
+    common_paths = [
+        r"D:\ffmpeg-latest\bin",
+        r"C:\ffmpeg\bin"
+    ]
+    for cp in common_paths:
+        if os.path.exists(cp):
+            paths.append(cp)
+
+    # Làm sạch và chuẩn hoá các đường dẫn
+    seen = set()
+    cleaned_paths = []
+    for p in paths:
+        if p.lower().endswith(".exe"):
+            p = os.path.dirname(p)
+        try:
+            p = os.path.abspath(p)
+            if os.path.isdir(p) and p.lower() not in seen:
+                seen.add(p.lower())
+                cleaned_paths.append(p)
+        except Exception:
+            pass
+
+    os.environ["PATH"] = os.path.pathsep.join(cleaned_paths)
+    
 import sys
+if sys.stdout.encoding != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
+import yt_dlp
 import shutil
 import logging
 from pathlib import Path
@@ -114,23 +182,219 @@ def sanitize_title(title: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════
+#  CUSTOM PLAYLIST PARSER FOR NEW LAYOUTS (lockupViewModel)
+# ═══════════════════════════════════════════════════════════════════════
+import urllib.request
+import re
+import json
+from datetime import datetime
+
+def parse_duration(duration_str: str | None) -> int | None:
+    if not duration_str:
+        return None
+    parts = duration_str.split(':')
+    try:
+        parts = [int(p) for p in parts]
+        if len(parts) == 1:
+            return parts[0]
+        elif len(parts) == 2:
+            return parts[0] * 60 + parts[1]
+        elif len(parts) == 3:
+            return parts[0] * 3600 + parts[1] * 60 + parts[2]
+    except Exception:
+        pass
+    return None
+
+def find_keys(d, target_key, results=None):
+    if results is None:
+        results = []
+    if isinstance(d, dict):
+        for k, v in d.items():
+            if k == target_key:
+                results.append(v)
+            else:
+                find_keys(v, target_key, results)
+    elif isinstance(d, list):
+        for item in d:
+            find_keys(item, target_key, results)
+    return results
+
+def get_continuation_token(data_dict):
+    continuations = find_keys(data_dict, 'continuationItemViewModel')
+    if continuations:
+        token = (continuations[0]
+                 .get('continuationCommand', {})
+                 .get('innertubeCommand', {})
+                 .get('continuationCommand', {})
+                 .get('token'))
+        return token
+    return None
+
+def extract_video_info(lockup_vm):
+    try:
+        title = (lockup_vm
+                 .get('metadata', {})
+                 .get('lockupMetadataViewModel', {})
+                 .get('title', {})
+                 .get('content'))
+        video_id = lockup_vm.get('contentId')
+        
+        duration_text = None
+        overlays = lockup_vm.get('contentImage', {}).get('thumbnailViewModel', {}).get('overlays', [])
+        for overlay in overlays:
+            badge = overlay.get('thumbnailBottomOverlayViewModel', {}).get('badges', [])
+            if badge:
+                duration_text = badge[0].get('thumbnailBadgeViewModel', {}).get('text')
+                break
+                
+        duration_sec = parse_duration(duration_text)
+        
+        return {
+            'id': video_id,
+            'title': title,
+            'duration': duration_sec,
+            'url': f"https://youtube.com/watch?v={video_id}"
+        }
+    except Exception:
+        return None
+
+def fetch_playlist_custom(url: str) -> dict | None:
+    try:
+        req = urllib.request.Request(
+            url, 
+            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+        )
+        html = urllib.request.urlopen(req).read().decode('utf-8')
+        
+        # 1. Find API key
+        api_key_match = re.search(r'AIzaSy[A-Za-z0-9_-]{33,40}', html)
+        api_key = api_key_match.group(0) if api_key_match else None
+        if not api_key:
+            return None
+            
+        # 2. Extract ytInitialData
+        pattern = re.compile(r'window\["ytInitialData"\]\s*=\s*({.*?});|ytInitialData\s*=\s*({.*?});', re.DOTALL)
+        match = pattern.search(html)
+        if not match:
+            return None
+            
+        data_str = match.group(1) or match.group(2)
+        data = json.loads(data_str)
+        
+        # 3. Check if this is a new layout playlist using lockupViewModel
+        lockups = find_keys(data, 'lockupViewModel')
+        if not lockups:
+            return None # Fallback to standard yt-dlp
+            
+        print(f"   [Custom Extractor] Phát hiện playlist cấu trúc mới (lockupViewModel). Đang tải...")
+        
+        # Extract title and channel info
+        pl_title = "Không rõ"
+        pmr = find_keys(data, 'playlistMetadataRenderer')
+        if pmr:
+            pl_title = pmr[0].get('title', 'Không rõ')
+            
+        channel = "Không rõ"
+        vor = find_keys(data, 'videoOwnerRenderer')
+        if vor:
+            runs = vor[0].get('title', {}).get('runs', [])
+            if runs:
+                channel = runs[0].get('text', 'Không rõ')
+                
+        entries = []
+        for lockup in lockups:
+            info = extract_video_info(lockup)
+            if info:
+                entries.append(info)
+                
+        # Get next continuation token
+        token = get_continuation_token(data)
+        
+        # Generate dynamic client version based on current date
+        current_date_str = datetime.now().strftime("%Y%m%d")
+        client_version = f"2.{current_date_str}.00.00"
+        
+        page = 1
+        while token:
+            browse_url = f"https://www.youtube.com/youtubei/v1/browse?key={api_key}"
+            payload = {
+                "context": {
+                    "client": {
+                        "clientName": "WEB",
+                        "clientVersion": client_version
+                    }
+                },
+                "continuation": token
+            }
+            
+            post_data = json.dumps(payload).encode('utf-8')
+            post_req = urllib.request.Request(
+                browse_url,
+                data=post_data,
+                headers={
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                }
+            )
+            
+            try:
+                res = urllib.request.urlopen(post_req).read().decode('utf-8')
+                res_json = json.loads(res)
+                
+                page_lockups = find_keys(res_json, 'lockupViewModel')
+                if not page_lockups:
+                    break
+                    
+                page_entries_count = 0
+                for lockup in page_lockups:
+                    info = extract_video_info(lockup)
+                    if info:
+                        entries.append(info)
+                        page_entries_count += 1
+                
+                # Check for next continuation token
+                token = get_continuation_token(res_json)
+                page += 1
+            except Exception as e:
+                APP_LOG.warning(f"Error fetching page {page} of playlist continuation: {e}")
+                break
+                
+        return {
+            "title": pl_title,
+            "channel": channel,
+            "uploader": channel,
+            "entries": entries
+        }
+    except Exception as e:
+        APP_LOG.warning(f"Custom playlist extractor failed: {e}")
+        return None
+
+
+# ═══════════════════════════════════════════════════════════════════════
 #  BƯỚC 1: Lấy danh sách video trong playlist
 # ═══════════════════════════════════════════════════════════════════════
 def fetch_playlist(url: str) -> dict:
     """Trả về metadata playlist (không tải video)."""
+    print(f"\n🔍 Đang tải thông tin playlist...")
+    print(f"   URL: {url}\n")
+    
+    # Thử cào bằng parser tuỳ chỉnh hỗ trợ lockupViewModel
+    info = fetch_playlist_custom(url)
+    if info:
+        return info
+
+    # Fallback về yt-dlp mặc định nếu không phải cấu trúc mới hoặc cào lỗi
     ydl_opts = {
         "quiet":        True,
         "no_warnings":  True,
         "extract_flat": "in_playlist",
     }
 
-    print(f"\n🔍 Đang tải thông tin playlist...")
-    print(f"   URL: {url}\n")
-
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
 
     return info
+
 
 
 # ═══════════════════════════════════════════════════════════════════════

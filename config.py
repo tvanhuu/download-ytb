@@ -10,8 +10,8 @@
 # URL playlist YouTube muốn tải (dùng khi không truyền argument từ CLI)
 # PLYaaU301HUe03PabLEGbMGB8nhHgq58Zr Thế Giới Hoàn Mỹ 
 # PLVWkw4N2bf77S-EwSLexakrYJ-wvcmMHi Tiên nghịch 
-# PLAYLIST_URL = "https://www.youtube.com/playlist?list=PLYaaU301HUe06Zlf3qv9q2dnVulj35gOb" # PHÀM NHÂN TU TIÊN 2
-PLAYLIST_URL = "https://www.youtube.com/playlist?list=PLJKFdztrzjpXB7PSeIfb-8KSK6ZzqY1pI"
+# PLAYLIST_URL = "https://www.youtube.com/playlist?list=PLYaaU301HUe03PabLEGbMGB8nhHgq58Zr" # PHÀM NHÂN TU TIÊN 2
+PLAYLIST_URL = "https://www.youtube.com/playlist?list=PLYaaU301HUe2LkN6ZxJLZzaxgvEdb80Np"
 
 # Danh sách video muốn BỎ QUA — không tải
 # Hỗ trợ 2 cách:
@@ -31,11 +31,11 @@ SKIP_VIDEOS: list[int | str] = ["Z6qH-rhdSIw", "-xIZjbuZAN8", "kWE1O65dMY0", "24
 # ─────────────────────────────────────────────
 
 # Thư mục gốc chứa tất cả file tải về
-OUTPUT_DIR = "./downloads"
+OUTPUT_DIR = "./downloads/"
 
 # Thư mục con cho từng loại (tự động tạo nếu chưa có)
 VIDEO_SUBDIR = "videos"   # → ./downloads/videos/
-AUDIO_SUBDIR = "audio"    # → ./downloads/audio/
+AUDIO_SUBDIR = "audio/ma-thien-ky"    # → ./downloads/audio/
 
 
 # ─────────────────────────────────────────────
@@ -69,7 +69,7 @@ SUBTITLE_LANGS = "vi"
 
 # Bitrate MP3 (kbps)
 # Các lựa chọn: "128" | "192" | "256" | "320"
-AUDIO_QUALITY = "192"
+AUDIO_QUALITY = "128"
 
 # Định dạng audio đầu ra
 # Các lựa chọn: "mp3" | "m4a" | "wav" | "flac"
