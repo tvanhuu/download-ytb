@@ -1,5 +1,13 @@
 import os
 import platform
+import sys
+import shutil
+import logging
+from pathlib import Path
+from datetime import timedelta
+from tqdm import tqdm
+
+import config
 
 # Tự động sửa/thêm PATH trên Windows nếu chưa nhận diện được ffmpeg
 if platform.system() == "Windows":
@@ -60,21 +68,7 @@ if platform.system() == "Windows":
 
     os.environ["PATH"] = os.path.pathsep.join(cleaned_paths)
     
-import sys
-if sys.stdout.encoding != 'utf-8':
-    try:
-        sys.stdout.reconfigure(encoding='utf-8')
-    except Exception:
-        pass
 
-import yt_dlp
-import shutil
-import logging
-from pathlib import Path
-from datetime import timedelta
-from tqdm import tqdm
-
-import config
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -614,6 +608,128 @@ def build_base_opts(out_path: str, format_type: str) -> dict:
 
 
 # ═══════════════════════════════════════════════════════════════════════
+#  [FIX 6] HELPERS — verify & retry
+# ═══════════════════════════════════════════════════════════════════════
+def _get_dir_files(directory: str) -> set[str]:
+    """Lấy danh sách file trong thư mục (không đệ quy, bỏ qua thư mục con)."""
+    try:
+        return {
+            f for f in os.listdir(directory)
+            if os.path.isfile(os.path.join(directory, f))
+        }
+    except OSError:
+        return set()
+
+
+def _download_single(
+    video: dict,
+    base_opts: dict,
+    out_path: str,
+    total: int,
+    attempt: int = 1,
+) -> str:
+    """
+    Tải 1 video và verify kết quả.
+
+    Returns:
+        "success" — tải thành công, file thực sự tồn tại
+        "skipped" — đã có trong archive
+        "failed"  — lỗi hoặc file không được tạo (silent failure)
+    """
+    idx   = video["index"]
+    title = video["title"]
+    url   = video["url"]
+
+    attempt_label = f" (lần {attempt})" if attempt > 1 else ""
+    short_title = title[:30] + "…" if len(title) > 30 else title
+    label = f"  [{idx:>3}/{total}] {short_title:<31}{attempt_label}"
+
+    # Logger + hook riêng cho từng video
+    ydl_logger = YdlLogger()
+    hook       = make_progress_hook(label)
+
+    ydl_opts = {
+        **base_opts,
+        "logger":         ydl_logger,
+        "progress_hooks": [hook],
+    }
+
+    # ── [MỨC 1] Snapshot thư mục TRƯỚC khi tải ──
+    files_before = _get_dir_files(out_path)
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+
+        # Phân biệt skip vs success
+        if ydl_logger.was_skipped:
+            tqdm.write(f"  ⏭  [{idx}/{total}] Bỏ qua (đã tải): {title}")
+            return "skipped"
+
+        # ── [MỨC 1] Verify file thực sự được tạo ──
+        files_after = _get_dir_files(out_path)
+        new_files = files_after - files_before
+
+        if new_files:
+            APP_LOG.info(f"OK [{idx}/{total}] {title}")
+            return "success"
+        else:
+            # yt-dlp return OK nhưng KHÔNG tạo file → silent failure
+            msg = f"[{idx}/{total}] {title} — File không được tạo (yt-dlp lỗi âm thầm)"
+            APP_LOG.warning(msg)
+            tqdm.write(f"  ⚠️  {msg}")
+            return "failed"
+
+    except Exception as e:
+        msg = f"[{idx}/{total}] {title} — {e}"
+        APP_LOG.error(msg)
+        tqdm.write(f"  ❌ Lỗi: {msg}")
+        return "failed"
+
+
+def _print_verification(
+    videos: list[dict],
+    results: dict[str, str],
+    failed_videos: list[dict],
+    out_path: str,
+):
+    """
+    [MỨC 3] Báo cáo verification cuối cùng.
+    So sánh danh sách video cần tải vs kết quả thực tế.
+    In URL của video thiếu để dễ tải lại thủ công.
+    """
+    total_videos   = len(videos)
+    count_success  = sum(1 for s in results.values() if s == "success")
+    count_skipped  = sum(1 for s in results.values() if s == "skipped")
+    count_failed   = sum(1 for s in results.values() if s == "failed")
+    count_verified = count_success + count_skipped  # file tồn tại (mới tải + đã có)
+
+    print(f"\n{'═' * 70}")
+    print(f"  📊 VERIFICATION REPORT")
+    print(f"{'═' * 70}")
+    print(f"     📦 Tổng cần tải  : {total_videos}")
+    print(f"     ✅ Thành công    : {count_success}")
+    print(f"     ⏭  Đã có (skip) : {count_skipped}")
+    print(f"     ❌ Thất bại      : {count_failed}")
+    print(f"     📁 Thư mục      : {out_path}")
+
+    if failed_videos:
+        print(f"\n  {'─' * 66}")
+        print(f"  ⚠️  CÁC VIDEO BỊ THIẾU ({len(failed_videos)} video):")
+        print(f"  {'─' * 66}")
+        for v in failed_videos:
+            short = v['title'][:50] + '…' if len(v['title']) > 50 else v['title']
+            print(f"     ❌ [{v['index']}] {short}")
+            print(f"        URL: {v['url']}")
+        print(f"  {'─' * 66}")
+        print(f"  💡 Chạy lại script để tải các video thiếu (archive sẽ skip video đã có).")
+    else:
+        print(f"\n  ✅ HOÀN HẢO! Tất cả {count_verified} video đều đã được tải/có sẵn.")
+
+    print(f"{'═' * 70}\n")
+
+
+# ═══════════════════════════════════════════════════════════════════════
 #  BƯỚC 3: Download toàn bộ playlist
 # ═══════════════════════════════════════════════════════════════════════
 def download_playlist(videos: list[dict], format_type: str = "video"):
@@ -624,6 +740,7 @@ def download_playlist(videos: list[dict], format_type: str = "video"):
     - [FIX 3] Kiểm tra ffmpeg trước khi chạy
     - [FIX 4] base_opts build 1 lần, clone cho từng video
     - [FIX 5] Ghi lỗi ra LOG_FILE
+    - [FIX 6] Verify file tồn tại + auto-retry + verification report
     """
     if not videos:
         print("⚠️  Không có video nào để tải.")
@@ -660,51 +777,56 @@ def download_playlist(videos: list[dict], format_type: str = "video"):
         print(f"  📒 Archive    : {config.ARCHIVE_FILE}  (bỏ qua nếu đã tải)")
     if config.LOG_FILE:
         print(f"  📝 Log lỗi   : {config.LOG_FILE}")
+    if config.MAX_DOWNLOAD_RETRIES > 0:
+        print(f"  🔄 Auto-retry : tối đa {config.MAX_DOWNLOAD_RETRIES} vòng cho video lỗi")
     print(f"{'─' * 70}\n")
 
     # [FIX 4] Build base opts 1 lần duy nhất
     base_opts = build_base_opts(out_path, format_type)
 
-    success = 0
-    skipped = 0
-    failed  = 0
+    # ── Lượt tải chính ──
+    results: dict[str, str] = {}   # video_id → "success" | "skipped" | "failed"
+    failed_videos: list[dict] = []
 
     for video in videos:
-        idx   = video["index"]
-        title = video["title"]
-        url   = video["url"]
+        status = _download_single(video, base_opts, out_path, total)
+        results[video["id"]] = status
+        if status == "failed":
+            failed_videos.append(video)
 
-        short_title = title[:30] + "…" if len(title) > 30 else title
-        label = f"  [{idx:>3}/{total}] {short_title:<31}"
+    # ── [MỨC 2] Auto-retry cho video thất bại ──
+    retry_round = 0
+    while failed_videos and retry_round < config.MAX_DOWNLOAD_RETRIES:
+        retry_round += 1
+        print(f"\n{'─' * 70}")
+        print(f"  🔄 RETRY lần {retry_round}/{config.MAX_DOWNLOAD_RETRIES}")
+        print(f"     📋 {len(failed_videos)} video cần thử lại")
+        print(f"{'─' * 70}\n")
 
-        # [FIX 1] Logger + hook riêng cho từng video
-        ydl_logger = YdlLogger()
-        hook       = make_progress_hook(label)
+        still_failed: list[dict] = []
+        for video in failed_videos:
+            status = _download_single(
+                video, base_opts, out_path, total,
+                attempt=retry_round + 1,
+            )
+            results[video["id"]] = status
+            if status == "failed":
+                still_failed.append(video)
 
-        # Clone base_opts — không mutate dict gốc
-        ydl_opts = {
-            **base_opts,
-            "logger":         ydl_logger,
-            "progress_hooks": [hook],
-        }
+        recovered = len(failed_videos) - len(still_failed)
+        if recovered > 0:
+            tqdm.write(f"  ✅ Retry lần {retry_round}: phục hồi {recovered} video")
 
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
+        failed_videos = still_failed
 
-            # [FIX 1] Phân biệt skip vs success qua logger
-            if ydl_logger.was_skipped:
-                skipped += 1
-                tqdm.write(f"  ⏭  [{idx}/{total}] Bỏ qua (đã tải): {title}")
-            else:
-                success += 1
-                APP_LOG.info(f"OK [{idx}/{total}] {title}")
+        if not failed_videos:
+            tqdm.write(f"  🎉 Retry thành công! Tất cả video đã được tải.")
+            break
 
-        except Exception as e:
-            failed += 1
-            msg = f"[{idx}/{total}] {title} — {e}"
-            APP_LOG.error(msg)
-            tqdm.write(f"  ❌ Lỗi: {msg}")
+    # Đếm kết quả cuối cùng
+    success = sum(1 for s in results.values() if s == "success")
+    skipped = sum(1 for s in results.values() if s == "skipped")
+    failed  = sum(1 for s in results.values() if s == "failed")
 
     # Summary
     print(f"\n{'=' * 70}")
@@ -715,7 +837,10 @@ def download_playlist(videos: list[dict], format_type: str = "video"):
     print(f"     📁 Lưu tại : {out_path}")
     if config.LOG_FILE and failed > 0:
         print(f"     📝 Xem log : {config.LOG_FILE}")
-    print(f"{'=' * 70}\n")
+    print(f"{'=' * 70}")
+
+    # ── [MỨC 3] Verification report ──
+    _print_verification(videos, results, failed_videos, out_path)
 
 
 # ═══════════════════════════════════════════════════════════════════════

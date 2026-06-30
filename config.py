@@ -87,9 +87,13 @@ RATE_LIMIT = None
 # Kích thước chunk HTTP (bytes) — tăng nếu mạng tốt
 HTTP_CHUNK_SIZE = 10 * 1024 * 1024   # 10 MB
 
-# Số lần retry khi gặp lỗi mạng
+# Số lần retry khi gặp lỗi mạng (cho từng fragment/request bên trong yt-dlp)
 RETRIES = 3
 FRAGMENT_RETRIES = 3
+
+# Số vòng retry cho video thất bại (sau khi chạy xong toàn bộ playlist)
+# Ví dụ: 2 = retry tối đa 2 lần cho mỗi video bị lỗi
+MAX_DOWNLOAD_RETRIES = 2
 
 # Thời gian nghỉ giữa mỗi request (giây) — giúp tránh bị block
 SLEEP_INTERVAL = 1       # Giữa các video
