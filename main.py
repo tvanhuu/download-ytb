@@ -401,12 +401,13 @@ def fetch_playlist(url: str) -> dict:
 # ═══════════════════════════════════════════════════════════════════════
 #  BƯỚC 2: Hiển thị danh sách video
 # ═══════════════════════════════════════════════════════════════════════
-def display_playlist(info: dict, skip_videos: list[int | str] | None = None) -> list[dict]:
-    """In bảng danh sách video. Trả về list[dict] để download tiếp.
+def display_playlist(info: dict, skip_videos: list[int | str] | None = None, subdir: str = "") -> list[dict]:
+    """Xử lý danh sách video. Ghi chi tiết ra file .txt, chỉ show tóm tắt trên console.
     
     Args:
         info: metadata playlist từ fetch_playlist()
         skip_videos: danh sách video cần bỏ qua (merge global + playlist skip)
+        subdir: tên thư mục con (dùng để đặt tên file txt)
     """
     if skip_videos is None:
         skip_videos = []
@@ -420,27 +421,28 @@ def display_playlist(info: dict, skip_videos: list[int | str] | None = None) -> 
     skip_indices = {v for v in skip_videos if isinstance(v, int)}
     skip_ids     = {v for v in skip_videos if isinstance(v, str)}
 
-    print("=" * 70)
-    print(f"  📋  {pl_title}")
-    print(f"  👤  {channel}")
-    print(f"  📦  Tổng số video: {total}")
-    if skip_indices or skip_ids:
-        print(f"  🚫  Bỏ qua (config): {len(skip_indices) + len(skip_ids)} video")
-    print("=" * 70)
-
     if total == 0:
-        print("  ⚠️  Playlist trống hoặc không thể truy cập.")
+        print(f"  ⚠️  Playlist trống hoặc không thể truy cập: {pl_title}")
         return []
-
-    print(f"  {'#':>4}  {'Tiêu đề':<48}  {'Thời lượng':>10}")
-    print("  " + "-" * 66)
 
     videos = []
     user_skipped = 0
 
+    # Chuẩn bị nội dung ghi ra file txt
+    txt_lines: list[str] = []
+    txt_lines.append("=" * 70)
+    txt_lines.append(f"  📋  {pl_title}")
+    txt_lines.append(f"  👤  {channel}")
+    txt_lines.append(f"  📦  Tổng số video: {total}")
+    if skip_indices or skip_ids:
+        txt_lines.append(f"  🚫  Bỏ qua (config): {len(skip_indices) + len(skip_ids)} video")
+    txt_lines.append("=" * 70)
+    txt_lines.append(f"  {'#':>4}  {'Tiêu đề':<55}  {'Thời lượng':>10}  {'Trạng thái'}")
+    txt_lines.append("  " + "-" * 85)
+
     for i, entry in enumerate(entries, start=1):
         if entry is None:
-            print(f"  {i:>4}  {'[Video không khả dụng]':<48}  {'--:--':>10}")
+            txt_lines.append(f"  {i:>4}  {'[Video không khả dụng]':<55}  {'--:--':>10}  ⚠️ unavailable")
             continue
 
         video_id  = entry.get("id", "")
@@ -451,13 +453,13 @@ def display_playlist(info: dict, skip_videos: list[int | str] | None = None) -> 
         # Kiểm tra video có nằm trong danh sách skip không
         is_skipped = (i in skip_indices) or (video_id in skip_ids)
 
-        display_title = vid_title if len(vid_title) <= 48 else vid_title[:45] + "..."
+        display_title = vid_title if len(vid_title) <= 55 else vid_title[:52] + "..."
 
         if is_skipped:
             user_skipped += 1
-            print(f"  {i:>4}  {display_title:<48}  {duration:>10}  ⛔")
+            txt_lines.append(f"  {i:>4}  {display_title:<55}  {duration:>10}  ⛔ skip")
         else:
-            print(f"  {i:>4}  {display_title:<48}  {duration:>10}")
+            txt_lines.append(f"  {i:>4}  {display_title:<55}  {duration:>10}")
             videos.append({
                 "index": i,
                 "id":    video_id,
@@ -465,11 +467,28 @@ def display_playlist(info: dict, skip_videos: list[int | str] | None = None) -> 
                 "url":   url_video,
             })
 
-    print("  " + "-" * 66)
-    msg = f"\n  ✅ Tìm thấy {len(videos)} video sẽ tải / {total} tổng."
+    txt_lines.append("  " + "-" * 85)
+    summary_msg = f"  ✅ Sẽ tải {len(videos)} / {total} video."
     if user_skipped:
-        msg += f"  (🚫 bỏ qua {user_skipped} video theo config)"
-    print(msg + "\n")
+        summary_msg += f"  (🚫 bỏ qua {user_skipped} video theo config)"
+    txt_lines.append(summary_msg)
+
+    # Ghi ra file .txt
+    txt_dir = Path(config.OUTPUT_DIR)
+    txt_dir.mkdir(parents=True, exist_ok=True)
+    txt_filename = f"playlist_{subdir or sanitize_title(pl_title)}.txt"
+    txt_path = txt_dir / txt_filename
+
+    with open(txt_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(txt_lines) + "\n")
+
+    # Console chỉ show tóm tắt gọn
+    print(f"  📋  {pl_title}  │  👤 {channel}")
+    print(f"      📦 Tổng: {total} video  │  ✅ Sẽ tải: {len(videos)}", end="")
+    if user_skipped:
+        print(f"  │  🚫 Bỏ qua: {user_skipped}", end="")
+    print()
+    print(f"      📄 Chi tiết: {txt_path}")
 
     return videos
 
@@ -930,51 +949,68 @@ def main():
         print("   Vui lòng thêm playlist vào PLAYLISTS trong config.py")
         sys.exit(1)
 
-    # Hỏi format 1 lần, áp dụng cho tất cả playlist
     total_playlists = len(playlists)
+
+    # ── PHASE 1: Fetch metadata TẤT CẢ playlist trước ──
     print(f"\n{'█' * 70}")
-    print(f"  📚 Tìm thấy {total_playlists} playlist trong config")
-    for i, pl in enumerate(playlists, 1):
-        label = pl['subdir'] or pl['url']
-        print(f"     {i}. {label}")
+    print(f"  📚 Đang tải thông tin {total_playlists} playlist...")
     print(f"{'█' * 70}")
 
-    fmt = ask_format()
-    if fmt == "cancel":
-        print("\n👋 Đã huỷ. Không tải file nào.")
-        sys.exit(0)
-
-    # Lặp qua từng playlist
-    grand_success = 0
-    grand_skipped = 0
-    grand_failed  = 0
+    # Lưu kết quả fetch: list of (playlist_config, info, videos)
+    playlist_data: list[tuple[dict, dict, list[dict]]] = []
 
     for i, pl in enumerate(playlists, 1):
-        print(f"\n{'█' * 70}")
-        print(f"  📋 PLAYLIST {i}/{total_playlists}: {pl.get('subdir') or pl['url']}")
-        print(f"{'█' * 70}")
+        label = pl['subdir'] or pl['url']
+        print(f"\n  ── Playlist {i}/{total_playlists}: {label} ──")
 
         try:
             info = fetch_playlist(pl["url"])
         except yt_dlp.utils.DownloadError as e:
-            print(f"\n❌ Lỗi khi truy cập playlist {i}:\n   {e}")
-            APP_LOG.error(f"Playlist {i} fetch error: {e}")
-            print("   ⏭  Bỏ qua playlist này, tiếp tục...\n")
+            print(f"  ❌ Lỗi khi truy cập: {e}")
+            APP_LOG.error(f"Playlist {i} ({label}) fetch error: {e}")
             continue
 
         # Merge global skip + playlist skip
         merged_skip = list(set(config.SKIP_VIDEOS + pl.get("skip", [])))
 
-        videos = display_playlist(info, skip_videos=merged_skip)
-        if not videos:
-            print(f"  ⏭  Playlist {i} không có video nào để tải, tiếp tục...")
-            continue
+        videos = display_playlist(info, skip_videos=merged_skip, subdir=pl.get("subdir", ""))
+        if videos:
+            playlist_data.append((pl, info, videos))
+
+    # ── Hiển thị tổng quan ──
+    if not playlist_data:
+        print("\n⚠️  Không có playlist nào có video để tải.")
+        sys.exit(0)
+
+    total_videos = sum(len(videos) for _, _, videos in playlist_data)
+
+    print(f"\n{'█' * 70}")
+    print(f"  📊 TỔNG QUAN — {len(playlist_data)}/{total_playlists} playlist sẵn sàng")
+    print(f"{'─' * 70}")
+    for idx, (pl, info, videos) in enumerate(playlist_data, 1):
+        pl_title = info.get("title", pl.get("subdir", "Không rõ"))
+        print(f"     {idx}. {pl['subdir']:<25} │ {len(videos):>4} tập  │  {pl_title}")
+    print(f"{'─' * 70}")
+    print(f"     📦 Tổng cộng: {total_videos} video sẽ tải")
+    print(f"{'█' * 70}")
+
+    # ── PHASE 2: Hỏi format → tải tuần tự ──
+    fmt = ask_format()
+    if fmt == "cancel":
+        print("\n👋 Đã huỷ. Không tải file nào.")
+        sys.exit(0)
+
+    for idx, (pl, info, videos) in enumerate(playlist_data, 1):
+        print(f"\n{'█' * 70}")
+        print(f"  📋 PLAYLIST {idx}/{len(playlist_data)}: {pl.get('subdir') or pl['url']}")
+        print(f"{'█' * 70}")
 
         download_playlist(videos, format_type=fmt, subdir=pl["subdir"])
 
     # Tổng kết cuối cùng
     print(f"\n{'█' * 70}")
-    print(f"  🎉 HOÀN THÀNH TẤT CẢ {total_playlists} PLAYLIST!")
+    print(f"  🎉 HOÀN THÀNH TẤT CẢ {len(playlist_data)} PLAYLIST!")
+    print(f"     📦 Tổng: {total_videos} video")
     print(f"{'█' * 70}\n")
 
 
