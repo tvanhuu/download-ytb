@@ -4,26 +4,59 @@
 
 
 # ─────────────────────────────────────────────
-#  PLAYLIST
+#  DANH SÁCH PLAYLIST
 # ─────────────────────────────────────────────
 
-# URL playlist YouTube muốn tải (dùng khi không truyền argument từ CLI)
-# PLYaaU301HUe03PabLEGbMGB8nhHgq58Zr Thế Giới Hoàn Mỹ 
-# PLVWkw4N2bf77S-EwSLexakrYJ-wvcmMHi Tiên nghịch 
-# PLAYLIST_URL = "https://www.youtube.com/playlist?list=PLYaaU301HUe03PabLEGbMGB8nhHgq58Zr" # PHÀM NHÂN TU TIÊN 2
-PLAYLIST_URL = "https://www.youtube.com/playlist?list=PLYaaU301HUe2LkN6ZxJLZzaxgvEdb80Np"
-
-# Danh sách video muốn BỎ QUA — không tải
-# Hỗ trợ 2 cách:
-#   - Số thứ tự trong playlist (int):  1, 5, 10
-#   - YouTube video ID (str):          "dQw4w9WgXcQ", "abc123xyz"
+# Mảng playlist YouTube — mỗi item là 1 playlist riêng biệt
+# Mỗi item gồm:
+#   - url    : URL playlist YouTube (bắt buộc)
+#   - subdir : Tên thư mục con lưu file (bắt buộc)
+#              → file sẽ nằm trong: downloads/audio/<subdir>/ hoặc downloads/videos/<subdir>/
+#   - skip   : Danh sách video bỏ qua cho playlist này (tuỳ chọn, mặc định [])
+#              Hỗ trợ số thứ tự (int) hoặc video ID (str)
 #
 # Ví dụ:
-#   SKIP_VIDEOS = [3, 7, 15]                          # bỏ qua video #3, #7, #15
-#   SKIP_VIDEOS = ["dQw4w9WgXcQ", "abc123xyz"]        # bỏ qua theo video ID
-#   SKIP_VIDEOS = [3, "dQw4w9WgXcQ", 15]              # kết hợp cả hai
-#   SKIP_VIDEOS = []                                   # không bỏ qua video nào
-SKIP_VIDEOS: list[int | str] = ["Z6qH-rhdSIw", "-xIZjbuZAN8", "kWE1O65dMY0", "24fyV_wicYo", "ARIyZkA5FF0", "AefATzHCR7k", "gSKZDU12S6s", "dj9IgI8W1ZY","opmjdWcClCQ","gD6OCieWczY","tk4s_edISxI","Maz3GxIqCyU","DFtCsqbx6sY","O_VFLhStEGM","zOtvm9g9zx8","48ghpKlRXC4","5WP-n0E06jw","nw_7wsxlhEQ","3X8CshJrAQ4","dKWj74rpnBE","2c-fatddwFw","s3lHq7QKlbY","CLmwYTtrprQ","_2Kdg8dir0Q"]
+#   PLAYLISTS = [
+#       {
+#           "url": "https://www.youtube.com/playlist?list=PLxxx",
+#           "subdir": "ten-truyen",
+#           "skip": [3, "dQw4w9WgXcQ"],
+#       },
+#       {
+#           "url": "https://www.youtube.com/playlist?list=PLyyy",
+#           "subdir": "ten-truyen-2",
+#       },
+#   ]
+
+PLAYLISTS = [
+    {
+        "url": "https://www.youtube.com/playlist?list=PLYaaU301HUe2LkN6ZxJLZzaxgvEdb80Np",
+        "subdir": "ma-thien-ky",
+        "skip": [
+            "Z6qH-rhdSIw", "-xIZjbuZAN8", "kWE1O65dMY0", "24fyV_wicYo",
+            "ARIyZkA5FF0", "AefATzHCR7k", "gSKZDU12S6s", "dj9IgI8W1ZY",
+            "opmjdWcClCQ", "gD6OCieWczY", "tk4s_edISxI", "Maz3GxIqCyU",
+            "DFtCsqbx6sY", "O_VFLhStEGM", "zOtvm9g9zx8", "48ghpKlRXC4",
+            "5WP-n0E06jw", "nw_7wsxlhEQ", "3X8CshJrAQ4", "dKWj74rpnBE",
+            "2c-fatddwFw", "s3lHq7QKlbY", "CLmwYTtrprQ", "_2Kdg8dir0Q",
+        ],
+    },
+    {
+        "url": "https://www.youtube.com/playlist?list=PLYaaU301HUe03PabLEGbMGB8nhHgq58Zr",
+        "subdir": "pham-nhan-tu-tien",
+    },
+    {
+        "url": "https://www.youtube.com/playlist?list=PLVWkw4N2bf77S-EwSLexakrYJ-wvcmMHi",
+        "subdir": "tien-nghich",
+    },
+]
+
+# Fallback — dùng khi PLAYLISTS trống (backward compatible)
+PLAYLIST_URL = ""
+
+# Global skip — áp dụng cho TẤT CẢ playlist (merge với skip riêng từng playlist)
+# Hỗ trợ số thứ tự (int) hoặc video ID (str)
+SKIP_VIDEOS: list[int | str] = []
 
 
 # ─────────────────────────────────────────────
@@ -34,8 +67,11 @@ SKIP_VIDEOS: list[int | str] = ["Z6qH-rhdSIw", "-xIZjbuZAN8", "kWE1O65dMY0", "24
 OUTPUT_DIR = "./downloads/"
 
 # Thư mục con cho từng loại (tự động tạo nếu chưa có)
-VIDEO_SUBDIR = "videos"   # → ./downloads/videos/
-AUDIO_SUBDIR = "audio/ma-thien-ky"    # → ./downloads/audio/
+# Thư mục cụ thể cho từng truyện được khai báo trong PLAYLISTS[].subdir
+# Ví dụ: downloads/audio/ma-thien-ky/, downloads/videos/tien-nghich/
+VIDEO_SUBDIR = "videos"   # → ./downloads/videos/<subdir>/
+AUDIO_SUBDIR = "audio"    # → ./downloads/audio/<subdir>/
+
 
 
 # ─────────────────────────────────────────────

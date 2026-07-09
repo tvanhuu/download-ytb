@@ -401,17 +401,24 @@ def fetch_playlist(url: str) -> dict:
 # ═══════════════════════════════════════════════════════════════════════
 #  BƯỚC 2: Hiển thị danh sách video
 # ═══════════════════════════════════════════════════════════════════════
-def display_playlist(info: dict) -> list[dict]:
-    """In bảng danh sách video. Trả về list[dict] để download tiếp."""
+def display_playlist(info: dict, skip_videos: list[int | str] | None = None) -> list[dict]:
+    """In bảng danh sách video. Trả về list[dict] để download tiếp.
+    
+    Args:
+        info: metadata playlist từ fetch_playlist()
+        skip_videos: danh sách video cần bỏ qua (merge global + playlist skip)
+    """
+    if skip_videos is None:
+        skip_videos = []
 
     pl_title = info.get("title", "Không rõ")
     channel  = info.get("channel") or info.get("uploader", "Không rõ")
     entries  = info.get("entries", [])
     total    = len(entries)
 
-    # Tách SKIP_VIDEOS thành 2 set: skip theo index (int) và theo ID (str)
-    skip_indices = {v for v in config.SKIP_VIDEOS if isinstance(v, int)}
-    skip_ids     = {v for v in config.SKIP_VIDEOS if isinstance(v, str)}
+    # Tách skip thành 2 set: skip theo index (int) và theo ID (str)
+    skip_indices = {v for v in skip_videos if isinstance(v, int)}
+    skip_ids     = {v for v in skip_videos if isinstance(v, str)}
 
     print("=" * 70)
     print(f"  📋  {pl_title}")
@@ -739,7 +746,7 @@ def _print_verification(
 # ═══════════════════════════════════════════════════════════════════════
 #  BƯỚC 3: Download toàn bộ playlist
 # ═══════════════════════════════════════════════════════════════════════
-def download_playlist(videos: list[dict], format_type: str = "video"):
+def download_playlist(videos: list[dict], format_type: str = "video", subdir: str = ""):
     """
     Tải từng video trong playlist với:
     - [FIX 1] Đếm skip/success chính xác qua YdlLogger
@@ -748,6 +755,11 @@ def download_playlist(videos: list[dict], format_type: str = "video"):
     - [FIX 4] base_opts build 1 lần, clone cho từng video
     - [FIX 5] Ghi lỗi ra LOG_FILE
     - [FIX 6] Verify file tồn tại + auto-retry + verification report
+
+    Args:
+        videos: danh sách video cần tải
+        format_type: "video" hoặc "audio"
+        subdir: thư mục con riêng cho playlist (từ PLAYLISTS[].subdir)
     """
     if not videos:
         print("⚠️  Không có video nào để tải.")
@@ -756,9 +768,12 @@ def download_playlist(videos: list[dict], format_type: str = "video"):
     # [FIX 3] Kiểm tra ffmpeg
     preflight_check(format_type)
 
-    # Chuẩn bị thư mục output
-    sub_dir  = config.AUDIO_SUBDIR if format_type == "audio" else config.VIDEO_SUBDIR
-    out_path = str(Path(config.OUTPUT_DIR) / sub_dir)
+    # Chuẩn bị thư mục output — thêm subdir riêng cho từng playlist
+    type_dir = config.AUDIO_SUBDIR if format_type == "audio" else config.VIDEO_SUBDIR
+    if subdir:
+        out_path = str(Path(config.OUTPUT_DIR) / type_dir / subdir)
+    else:
+        out_path = str(Path(config.OUTPUT_DIR) / type_dir)
     Path(out_path).mkdir(parents=True, exist_ok=True)
 
     total    = len(videos)
@@ -872,28 +887,95 @@ def ask_format() -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════
+#  HELPERS — lấy danh sách playlist từ config
+# ═══════════════════════════════════════════════════════════════════════
+def get_playlists() -> list[dict]:
+    """
+    Đọc danh sách playlist từ config.
+    Ưu tiên PLAYLISTS (mảng). Fallback về PLAYLIST_URL nếu mảng trống.
+    
+    Returns:
+        list[dict] — mỗi item có: url, subdir, skip
+    """
+    # Ưu tiên PLAYLISTS mảng
+    if hasattr(config, "PLAYLISTS") and config.PLAYLISTS:
+        playlists = []
+        for pl in config.PLAYLISTS:
+            playlists.append({
+                "url":    pl["url"],
+                "subdir": pl.get("subdir", ""),
+                "skip":   pl.get("skip", []),
+            })
+        return playlists
+
+    # Fallback về PLAYLIST_URL cũ (backward compatible)
+    if hasattr(config, "PLAYLIST_URL") and config.PLAYLIST_URL:
+        return [{
+            "url":    config.PLAYLIST_URL,
+            "subdir": "",
+            "skip":   [],
+        }]
+
+    return []
+
+
+# ═══════════════════════════════════════════════════════════════════════
 #  MAIN
 # ═══════════════════════════════════════════════════════════════════════
 def main():
-    url = sys.argv[1] if len(sys.argv) > 1 else config.PLAYLIST_URL
+    playlists = get_playlists()
 
-    try:
-        info = fetch_playlist(url)
-    except yt_dlp.utils.DownloadError as e:
-        print(f"\n❌ Lỗi khi truy cập playlist:\n   {e}")
-        APP_LOG.error(f"Playlist fetch error: {e}")
+    if not playlists:
+        print("\n❌ Không có playlist nào được khai báo trong config.")
+        print("   Vui lòng thêm playlist vào PLAYLISTS trong config.py")
         sys.exit(1)
 
-    videos = display_playlist(info)
-    if not videos:
-        sys.exit(0)
+    # Hỏi format 1 lần, áp dụng cho tất cả playlist
+    total_playlists = len(playlists)
+    print(f"\n{'█' * 70}")
+    print(f"  📚 Tìm thấy {total_playlists} playlist trong config")
+    for i, pl in enumerate(playlists, 1):
+        label = pl['subdir'] or pl['url']
+        print(f"     {i}. {label}")
+    print(f"{'█' * 70}")
 
     fmt = ask_format()
     if fmt == "cancel":
         print("\n👋 Đã huỷ. Không tải file nào.")
         sys.exit(0)
 
-    download_playlist(videos, format_type=fmt)
+    # Lặp qua từng playlist
+    grand_success = 0
+    grand_skipped = 0
+    grand_failed  = 0
+
+    for i, pl in enumerate(playlists, 1):
+        print(f"\n{'█' * 70}")
+        print(f"  📋 PLAYLIST {i}/{total_playlists}: {pl.get('subdir') or pl['url']}")
+        print(f"{'█' * 70}")
+
+        try:
+            info = fetch_playlist(pl["url"])
+        except yt_dlp.utils.DownloadError as e:
+            print(f"\n❌ Lỗi khi truy cập playlist {i}:\n   {e}")
+            APP_LOG.error(f"Playlist {i} fetch error: {e}")
+            print("   ⏭  Bỏ qua playlist này, tiếp tục...\n")
+            continue
+
+        # Merge global skip + playlist skip
+        merged_skip = list(set(config.SKIP_VIDEOS + pl.get("skip", [])))
+
+        videos = display_playlist(info, skip_videos=merged_skip)
+        if not videos:
+            print(f"  ⏭  Playlist {i} không có video nào để tải, tiếp tục...")
+            continue
+
+        download_playlist(videos, format_type=fmt, subdir=pl["subdir"])
+
+    # Tổng kết cuối cùng
+    print(f"\n{'█' * 70}")
+    print(f"  🎉 HOÀN THÀNH TẤT CẢ {total_playlists} PLAYLIST!")
+    print(f"{'█' * 70}\n")
 
 
 if __name__ == "__main__":
