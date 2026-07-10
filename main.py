@@ -474,7 +474,7 @@ def display_playlist(info: dict, skip_videos: list[int | str] | None = None, sub
     txt_lines.append(summary_msg)
 
     # Ghi ra file .txt
-    txt_dir = Path(config.OUTPUT_DIR)
+    txt_dir = Path("./playlist")
     txt_dir.mkdir(parents=True, exist_ok=True)
     txt_filename = f"playlist_{subdir or sanitize_title(pl_title)}.txt"
     txt_path = txt_dir / txt_filename
@@ -757,7 +757,7 @@ def _print_verification(
         print(f"  {'─' * 66}")
         print(f"  💡 Chạy lại script để tải các video thiếu (archive sẽ skip video đã có).")
     else:
-        print(f"\n  ✅ HOÀN HẢO! Tất cả {count_verified} video đều đã được tải/có sẵn.")
+        print(f"\n  ✅ HOÀN THÀNH! Tất cả {count_verified} video đều đã được tải/có sẵn.")
 
     print(f"{'═' * 70}\n")
 
@@ -841,7 +841,7 @@ def download_playlist(videos: list[dict], format_type: str = "video", subdir: st
         retry_round += 1
         print(f"\n{'─' * 70}")
         print(f"  🔄 RETRY lần {retry_round}/{config.MAX_DOWNLOAD_RETRIES}")
-        print(f"     📋 {len(failed_videos)} video cần thử lại")
+        print(f"     📋 {len(failed_videos)} video cần tải lại")
         print(f"{'─' * 70}\n")
 
         still_failed: list[dict] = []
@@ -856,7 +856,7 @@ def download_playlist(videos: list[dict], format_type: str = "video", subdir: st
 
         recovered = len(failed_videos) - len(still_failed)
         if recovered > 0:
-            tqdm.write(f"  ✅ Retry lần {retry_round}: phục hồi {recovered} video")
+            tqdm.write(f"  ✅ Retry lần {retry_round}: tải lại {recovered} video")
 
         failed_videos = still_failed
 

@@ -29,25 +29,37 @@
 #   ]
 
 PLAYLISTS = [
+    # {
+    #     "url": "https://www.youtube.com/playlist?list=PLYaaU301HUe2LkN6ZxJLZzaxgvEdb80Np",
+    #     "subdir": "ma-thien-ky",
+    #     "skip": [
+    #         "Z6qH-rhdSIw", "-xIZjbuZAN8", "kWE1O65dMY0", "24fyV_wicYo",
+    #         "ARIyZkA5FF0", "AefATzHCR7k", "gSKZDU12S6s", "dj9IgI8W1ZY",
+    #         "opmjdWcClCQ", "gD6OCieWczY", "tk4s_edISxI", "Maz3GxIqCyU",
+    #         "DFtCsqbx6sY", "O_VFLhStEGM", "zOtvm9g9zx8", "48ghpKlRXC4",
+    #         "5WP-n0E06jw", "nw_7wsxlhEQ", "3X8CshJrAQ4", "dKWj74rpnBE",
+    #         "2c-fatddwFw", "s3lHq7QKlbY", "CLmwYTtrprQ", "_2Kdg8dir0Q",
+    #     ],
+    # },
     {
-        "url": "https://www.youtube.com/playlist?list=PLYaaU301HUe2LkN6ZxJLZzaxgvEdb80Np",
-        "subdir": "ma-thien-ky",
-        "skip": [
-            "Z6qH-rhdSIw", "-xIZjbuZAN8", "kWE1O65dMY0", "24fyV_wicYo",
-            "ARIyZkA5FF0", "AefATzHCR7k", "gSKZDU12S6s", "dj9IgI8W1ZY",
-            "opmjdWcClCQ", "gD6OCieWczY", "tk4s_edISxI", "Maz3GxIqCyU",
-            "DFtCsqbx6sY", "O_VFLhStEGM", "zOtvm9g9zx8", "48ghpKlRXC4",
-            "5WP-n0E06jw", "nw_7wsxlhEQ", "3X8CshJrAQ4", "dKWj74rpnBE",
-            "2c-fatddwFw", "s3lHq7QKlbY", "CLmwYTtrprQ", "_2Kdg8dir0Q",
-        ],
+        "url": "https://www.youtube.com/playlist?list=PLO8qhgcGpJ0vIru3cVcSFZ7YSRLo7jTPe",
+        "subdir": "thai-hu-chi-ton",
     },
     {
-        "url": "https://www.youtube.com/playlist?list=PLYaaU301HUe03PabLEGbMGB8nhHgq58Zr",
-        "subdir": "pham-nhan-tu-tien",
+        "url": "https://www.youtube.com/playlist?list=PLO8qhgcGpJ0s7twqdqKzwXKwLDCdk3Ryv",
+        "subdir": "nhat-niem-than-ma",
     },
     {
-        "url": "https://www.youtube.com/playlist?list=PLVWkw4N2bf77S-EwSLexakrYJ-wvcmMHi",
-        "subdir": "tien-nghich",
+        "url": "https://www.youtube.com/playlist?list=PLO8qhgcGpJ0tlnEDewjcPhqNWLjxiy1m5",
+        "subdir": "vinh-hang-chi-mon",
+    },
+    {
+        "url": "https://www.youtube.com/playlist?list=PLYaaU301HUe2lwl0pMsxdMvG-d8xlTkCK",
+        "subdir": "luong-tam",
+    },
+    {
+        "url": "https://www.youtube.com/playlist?list=PLlX4DdjnK14M-xZj6j8B22zkbD6fBvNFc",
+        "subdir": "quan-am-chi-mgoai",
     },
 ]
 
@@ -64,7 +76,8 @@ SKIP_VIDEOS: list[int | str] = []
 # ─────────────────────────────────────────────
 
 # Thư mục gốc chứa tất cả file tải về
-OUTPUT_DIR = "./downloads/"
+# OUTPUT_DIR = "./downloads/"
+OUTPUT_DIR = r"E:\audio-stream-data\audios\mp3"
 
 # Thư mục con cho từng loại (tự động tạo nếu chưa có)
 # Thư mục cụ thể cho từng truyện được khai báo trong PLAYLISTS[].subdir
@@ -143,7 +156,7 @@ SLEEP_INTERVAL_MAX = 3   # Nghỉ tối đa (giây)
 
 # File lưu danh sách video đã tải — dùng để bỏ qua khi chạy lại
 # Đặt None để tắt tính năng này
-ARCHIVE_FILE = "./downloads/archive.txt"
+ARCHIVE_FILE = "./archive.txt"
 
 
 # ─────────────────────────────────────────────
@@ -151,7 +164,7 @@ ARCHIVE_FILE = "./downloads/archive.txt"
 # ─────────────────────────────────────────────
 
 # File lưu log lỗi
-LOG_FILE = "./downloads/error.log"
+LOG_FILE = "./error.log"
 
 # Hiển thị log chi tiết ra terminal (True/False)
 VERBOSE = False
